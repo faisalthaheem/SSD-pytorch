@@ -40,6 +40,8 @@ def get_args():
     parser.add_argument("--nms-threshold", type=float, default=0.5)
     parser.add_argument("--num-workers", type=int, default=4)
 
+    parser.add_argument("--dist", action='store_true', help="Enable distributed training across multiple GPUs (possibly across nodes)")
+
     parser.add_argument('--local_rank', default=0, type=int,
                         help='Used for multi-process training. Can either be manually set ' +
                              'or automatically set by using \'python -m multiproc\'.')
@@ -48,13 +50,21 @@ def get_args():
 
 
 def main(opt):
-    if torch.cuda.is_available():
-        torch.distributed.init_process_group(backend='nccl', init_method='env://')
-        num_gpus = torch.distributed.get_world_size()
-        torch.cuda.manual_seed(123)
+    
+    if opt.dist:
+        if torch.cuda.is_available():
+            torch.distributed.init_process_group(backend='nccl', init_method='env://')
+            num_gpus = torch.distributed.get_world_size()
+        else:
+            torch.manual_seed(123)
+            num_gpus = 1
     else:
-        torch.manual_seed(123)
         num_gpus = 1
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(123)
+        else:
+            torch.manual_seed(123)
+
 
     train_params = {"batch_size": opt.batch_size * num_gpus,
                     "shuffle": True,
@@ -99,9 +109,13 @@ def main(opt):
             model, optimizer = amp.initialize(model, optimizer, opt_level='O1')
         else:
             from torch.nn.parallel import DistributedDataParallel as DDP
-        # It is recommended to use DistributedDataParallel, instead of DataParallel
-        # to do multi-GPU training, even if there is only a single node.
-        model = DDP(model)
+            from torch.nn.parallel import DataParallel as DP
+        if opt.dist:
+            # It is recommended to use DistributedDataParallel, instead of DataParallel
+            # to do multi-GPU training, even if there is only a single node.
+            model = DDP(model)
+        else:
+            model = DP(model)
 
 
     if os.path.isdir(opt.log_path):
