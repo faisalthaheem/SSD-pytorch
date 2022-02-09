@@ -16,12 +16,20 @@ from src.transform import SSDTransformer
 from src.loss import Loss
 from src.process import train, evaluate
 from src.dataset import collate_fn, CocoDataset
+from src.dataset_openlpr import OpenlprDataset
 
 
 def get_args():
     parser = ArgumentParser(description="Implementation of SSD")
-    parser.add_argument("--data-path", type=str, default="/coco",
-                        help="the root folder of dataset")
+    parser.add_argument("--data-path-train", type=str, default="/datasets/openlpr/train",
+                        help="The folder cotaining training images as referred to by the db-path-train database.")
+    parser.add_argument("--data-path-val", type=str, default="/datasets/openlpr/val",
+                        help="The folder cotaining validation images as referred to by the db-path-val database.")
+    parser.add_argument("--db-path-train", type=str, default="/datasets/openlpr/train.db",
+                        help="Path to the database containing training image information.")
+    parser.add_argument("--db-path-val", type=str, default="/datasets/openlpr/val.db",
+                        help="Path to the database containing validation image information.")
+
     parser.add_argument("--save-folder", type=str, default="trained_models",
                         help="path to folder containing model checkpoint file")
     parser.add_argument("--log-path", type=str, default="tensorboard/SSD")
@@ -84,9 +92,11 @@ def main(opt):
     else:
         dboxes = generate_dboxes(model="ssdlite")
         model = SSDLite(backbone=MobileNetV2(), num_classes=len(coco_classes))
-    train_set = CocoDataset(opt.data_path, 2017, "train", SSDTransformer(dboxes, (300, 300), val=False))
+    # train_set = CocoDataset(opt.data_path, 2017, "train", SSDTransformer(dboxes, (300, 300), val=False))
+    train_set = OpenlprDataset(opt.db_path_train, opt.data_path_train, SSDTransformer(dboxes, (300, 300), val=False))
     train_loader = DataLoader(train_set, **train_params)
-    test_set = CocoDataset(opt.data_path, 2017, "val", SSDTransformer(dboxes, (300, 300), val=True))
+    # test_set = CocoDataset(opt.data_path, 2017, "val", SSDTransformer(dboxes, (300, 300), val=True))
+    test_set = OpenlprDataset(opt.db_path_val, opt.data_path_val, SSDTransformer(dboxes, (300, 300), val=True))
     test_loader = DataLoader(test_set, **test_params)
 
     encoder = Encoder(dboxes)
