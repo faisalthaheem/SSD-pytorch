@@ -61,6 +61,13 @@ def main(opt):
     
     if opt.dist:
         if torch.cuda.is_available():
+            
+            #needed to enable apex
+            os.environ['MASTER_ADDR'] = '127.0.0.1'
+            os.environ['MASTER_PORT'] = '29500'
+            os.environ['WORLD_SIZE'] = '1'
+            os.environ['RANK'] = '0'
+
             torch.distributed.init_process_group(backend='nccl', init_method='env://')
             num_gpus = torch.distributed.get_world_size()
         else:
@@ -116,10 +123,13 @@ def main(opt):
         if opt.amp:
             from apex import amp
             from apex.parallel import DistributedDataParallel as DDP
+
             model, optimizer = amp.initialize(model, optimizer, opt_level='O1')
         else:
             from torch.nn.parallel import DistributedDataParallel as DDP
             from torch.nn.parallel import DataParallel as DP
+
+        
         if opt.dist:
             # It is recommended to use DistributedDataParallel, instead of DataParallel
             # to do multi-GPU training, even if there is only a single node.
