@@ -1,0 +1,6 @@
+venv/
+demo/
+.vscode/
+tensorboard/
+__pycache__/*
+*.jpg
